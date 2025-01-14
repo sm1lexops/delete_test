@@ -32,33 +32,100 @@
 > [Link to automatization sript](bin/2_avtomatization.sh)
 
 ```sh
-#!/bin/bash
+#!/bin/zsh
 
-# Установка необходимых инструментов
-echo "Установка AVML..."
-sudo apt-get install -y avml
+# Define colors for echo messages
+GREEN='\033[1;32m'
+RED='\033[1;31m'
+YELLOW='\033[1;33m'
+CYAN='\033[1;36m'
+NC='\033[0m'  # No Color
 
-echo "Установка Volatility..."
-sudo apt-get install -y volatility
+# Function to install AVML
+install_avml() {
+  echo -e "${CYAN}Checking if AVML is installed...${NC}"
+  if command -v avml >/dev/null 2>&1; then
+    echo -e "${GREEN}AVML is already installed.${NC}"
+  else
+    echo -e "${YELLOW}Installing AVML...${NC}"
+    sudo apt-get update
+    sudo apt-get install -y avml || {
+      echo -e "${RED}Failed to install AVML via apt. Downloading binary...${NC}"
+      wget https://github.com/microsoft/avml/releases/download/v0.14.0/avml -O avml
+      chmod +x avml
+      sudo mv avml /usr/local/bin/
+    }
+    echo -e "${GREEN}AVML installation completed.${NC}"
+  fi
+}
 
-echo "Установка dwarf2json..."
-sudo apt-get install -y dwarf2json
+# Function to install Volatility
+install_volatility() {
+  echo -e "${CYAN}Checking if Volatility is installed...${NC}"
+  if command -v volatility >/dev/null 2>&1; then
+    echo -e "${GREEN}Volatility is already installed.${NC}"
+  else
+    echo -e "${YELLOW}Installing Volatility...${NC}"
+    sudo apt-get install -y volatility
+    echo -e "${GREEN}Volatility installation completed.${NC}"
+  fi
+}
 
-# Создание дампа оперативной памяти с помощью AVML
-echo "Создание дампа оперативной памяти..."
-sudo avml -o dump.raw
+# Function to install dwarf2json
+install_dwarf2json() {
+  echo -e "${CYAN}Checking if dwarf2json is installed...${NC}"
+  if command -v dwarf2json >/dev/null 2>&1; then
+    echo -e "${GREEN}dwarf2json is already installed.${NC}"
+  else
+    echo -e "${YELLOW}Installing dwarf2json...${NC}"
+    sudo apt-get install -y dwarf2json
+    echo -e "${GREEN}dwarf2json installation completed.${NC}"
+  fi
+}
 
-# Запуск Volatility для работы с артефактами форензики
-echo "Запуск Volatility..."
-sudo volatility -f dump.raw --profile=Linux --dump-dir=/tmp/volatility
+# Function to create memory dump using AVML
+create_memory_dump() {
+  echo -e "${CYAN}Creating memory dump with AVML...${NC}"
+  sudo avml -o dump.raw && echo -e "${GREEN}Memory dump created successfully.${NC}" || echo -e "${RED}Failed to create memory dump.${NC}"
+}
 
-# Создание symbol table для кастомного ядра Linux с помощью dwarf2json
-echo "Создание symbol table..."
-sudo dwarf2json -o symbol_table.json /path/to/custom/kernel/vmlinux
+# Function to analyze memory with Volatility
+analyze_memory() {
+  echo -e "${CYAN}Analyzing memory dump with Volatility...${NC}"
+  sudo volatility -f dump.raw --profile=Linux --dump-dir=/tmp/volatility && \
+  echo -e "${GREEN}Memory analysis completed successfully.${NC}" || \
+  echo -e "${RED}Memory analysis failed.${NC}"
+}
 
-# Сделать снимок Debug kernel для symbol table
-echo "Сделать снимок Debug kernel..."
-sudo gdb -ex "set logging file debug_kernel.log" -ex "set logging on" -ex "target remote :1234" -ex "continue" /path/to/custom/kernel/vmlinux
+# Function to create symbol table with dwarf2json
+create_symbol_table() {
+  local kernel_path="/path/to/custom/kernel/vmlinux"
+  echo -e "${CYAN}Creating symbol table with dwarf2json...${NC}"
+  sudo dwarf2json -o symbol_table.json "${kernel_path}" && \
+  echo -e "${GREEN}Symbol table created successfully.${NC}" || \
+  echo -e "${RED}Failed to create symbol table.${NC}"
+}
+
+# Function to take debug snapshot of kernel
+take_debug_snapshot() {
+  local kernel_path="/path/to/custom/kernel/vmlinux"
+  echo -e "${CYAN}Taking debug snapshot of kernel...${NC}"
+  sudo gdb -ex "set logging file debug_kernel.log" \
+           -ex "set logging on" \
+           -ex "target remote :1234" \
+           -ex "continue" "${kernel_path}" && \
+  echo -e "${GREEN}Debug snapshot completed successfully.${NC}" || \
+  echo -e "${RED}Failed to take debug snapshot.${NC}"
+}
+
+# Execute functions
+install_avml
+install_volatility
+install_dwarf2json
+create_memory_dump
+analyze_memory
+create_symbol_table
+take_debug_snapshot
 
 ```
 
